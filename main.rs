@@ -1,4 +1,5 @@
 use std::f32::MAX_EXP;
+use std::{thread, time};
 use rand::prelude::*;
 use raylib::prelude::*;
 use raylib::ffi::GetScreenWidth;
@@ -7,7 +8,7 @@ use raylib::ffi::SetConfigFlags;
 use raylib::ffi::ConfigFlags::FLAG_WINDOW_RESIZABLE;
 use raylib::ffi::KeyboardKey::*;
 
-const K: i32 = 3;
+const K: i32 = 4;
 const SAMPLE_R: f32 = 4.0;
 const MEAN_R: f32 = SAMPLE_R*2.0;
 const MIN_X: f32 = -20.0;
@@ -23,6 +24,14 @@ fn gen_float() -> f32{
     return rng.gen();
 }
 
+fn lerp(min: f32, max: f32, rand: f32) -> f32{
+    return rand*(max-min) + min;
+}
+
+fn vector_sum(v1: Vector2, v2: Vector2) -> Vector2{
+    return Vector2{x: v1.x+v2.x, y: v1.y - v2.y};
+}
+
 fn vector_subtract(v1: Vector2, v2: Vector2) -> Vector2{
     return Vector2{x: v1.x - v2.x, y: v1.y - v2.y};
 }
@@ -30,6 +39,8 @@ fn vector_subtract(v1: Vector2, v2: Vector2) -> Vector2{
 fn vector_length(v: Vector2) -> f32{
     return (v.x*v.x)+(v.y*v.y);
 }
+
+
 
 fn generate_cluster(center: Vector2, radius: f32, count: i32, samples: &mut Vec<Vector2>){
     for i in 0..count{
@@ -54,13 +65,18 @@ fn regenerate_cluster(cluster: &mut Vec<Vector2>, means: &mut Vec<Vector2>) -> (
     generate_cluster(Vector2{x:0.0,y:0.0}, 10.0, 100, cluster);
     generate_cluster(Vector2{x: MIN_X*0.5, y: MAX_Y*0.5}, 5.0, 100, cluster);
     generate_cluster(Vector2{x: MAX_X*0.5, y: MAX_Y*0.5}, 5.0, 100, cluster);
+    generate_cluster(Vector2{x: MIN_X*0.5, y: MIN_Y*0.5}, 5.0, 100, cluster);
+    generate_cluster(Vector2{x: MAX_X*0.5, y: MIN_Y*0.5}, 5.0, 100, cluster);
 
     for _ in 0..K{
-        means.push(Vector2{x: gen_float()*(MAX_X-MIN_X) + MIN_X, y: gen_float()*(MAX_Y-MIN_Y)+MIN_Y});
+        means.push(Vector2{x: lerp(MIN_X, MAX_X, gen_float()), y: lerp(MIN_Y, MAX_Y, gen_float())});
     }
 }
 
 fn recluster(cluster: &Vec<Vector2>, clusters: &mut Vec<Vec<Vector2>>, means: &Vec<Vector2>){
+    for _ in 0..K{
+        clusters.push(Vec::<Vector2>::new());
+    }
     for i in 0..cluster.len(){
         let p: Vector2 = cluster[i];
         let mut k: usize = usize::MIN;
@@ -77,10 +93,28 @@ fn recluster(cluster: &Vec<Vector2>, clusters: &mut Vec<Vec<Vector2>>, means: &V
     }
 }
 
+fn update_means(clusters: &Vec<Vec<Vector2>>, means: &mut Vec<Vector2>){
+    for i in 0..K{
+        if clusters[i as usize].len() as i32 > 0{
+            means[i as usize] = Vector2{x: 0.0, y: 0.0};
+            for j in 0..clusters[i as usize].len(){
+                means[i as usize] = vector_sum(means[i as usize], clusters[i as usize][j]);
+            }
+            means[i as usize].x /= clusters[i as usize].len() as f32;
+            means[i as usize].y /= clusters[i as usize].len() as f32;
+        }
+        else{
+            means[i as usize].x = lerp(MIN_X, MAX_X, gen_float());
+            means[i as usize].y = lerp(MIN_Y, MAX_Y, gen_float());
+        }
+    }
+}
+
 fn main(){
     let mut clusters: Vec<Vec<Vector2>> = vec![];
     let mut means: Vec<Vector2> = vec![];
     let mut cluster: Vec<Vector2> = vec![];
+    let mut start: bool = false;
 
     for _ in 0..K{
         clusters.push(Vec::<Vector2>::new());
@@ -104,13 +138,24 @@ fn main(){
             means = vec![];
             regenerate_cluster(&mut cluster, &mut means);
             clusters = vec![];
-            for _ in 0..K{
-                clusters.push(Vec::<Vector2>::new());
-            }
             recluster(&cluster, &mut clusters, &means);
+        }
+        if rl.is_key_pressed(KEY_SPACE){
+            if !start{
+                start = true;
+            }
+            else{
+                start = false;
+            }
         }
         let mut d = rl.begin_drawing(&thread);
         d.clear_background(Color::get_color(0x181818AA));
+        if start{
+            update_means(&clusters, &mut means);
+            clusters = vec![];
+            recluster(&cluster, &mut clusters, &means);
+            thread::sleep(time::Duration::from_millis(500));
+        }
         for i in 0..cluster.len(){
             d.draw_circle_v(project_sample(cluster[i]), SAMPLE_R, Color::RED);
         }
