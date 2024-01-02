@@ -49,18 +49,27 @@ fn project_sample(sample: Vector2) -> Vector2{
     return Vector2{x: nx*w, y: h-ny*h};
 }
 
-fn regenerate_cluster(cluster: &mut Vec<Vector2>, means: &mut Vec<Vector2>) -> (){
-
-    generate_cluster(Vector2{x:0.0,y:0.0}, 10.0, 100, cluster);
-    generate_cluster(Vector2{x: MIN_X*0.5, y: MAX_Y*0.5}, 5.0, 100, cluster);
-    generate_cluster(Vector2{x: MAX_X*0.5, y: MAX_Y*0.5}, 5.0, 100, cluster);
+fn main(){
+    let mut clusters: Vec<Vec<Vector2>> = vec![];
+    for _ in 0..K{
+        clusters.push(Vec::<Vector2>::new());
+    }
+    let mut means: Vec<Vector2> = vec![];
+    unsafe{SetConfigFlags(FLAG_WINDOW_RESIZABLE as u32)};
+    let (mut rl, thread) = raylib::init()
+        .size(800, 600)
+        .title("K means")
+        .build();
+    let mut cluster: Vec<Vector2> = vec![];
+    generate_cluster(Vector2{x:0.0,y:0.0}, 10.0, 100, &mut cluster);
+    generate_cluster(Vector2{x: MIN_X*0.5, y: MAX_Y*0.5}, 5.0, 100, &mut cluster);
+    generate_cluster(Vector2{x: MAX_X*0.5, y: MAX_Y*0.5}, 5.0, 100, &mut cluster);
 
     for _ in 0..K{
         means.push(Vector2{x: gen_float()*(MAX_X-MIN_X) + MIN_X, y: gen_float()*(MAX_Y-MIN_Y)+MIN_Y});
     }
-}
 
-fn recluster(cluster: &Vec<Vector2>, clusters: &mut Vec<Vec<Vector2>>, means: &Vec<Vector2>){
+
     for i in 0..cluster.len(){
         let p: Vector2 = cluster[i];
         let mut k: usize = usize::MIN;
@@ -75,39 +84,18 @@ fn recluster(cluster: &Vec<Vector2>, clusters: &mut Vec<Vec<Vector2>>, means: &V
         }
         clusters[k].push(p);
     }
-}
-
-fn main(){
-    let mut clusters: Vec<Vec<Vector2>> = vec![];
-    let mut means: Vec<Vector2> = vec![];
-    let mut cluster: Vec<Vector2> = vec![];
-
-    for _ in 0..K{
-        clusters.push(Vec::<Vector2>::new());
-    }
-
-    cluster = vec![];
-    regenerate_cluster(&mut cluster, &mut means);
-
-    unsafe{SetConfigFlags(FLAG_WINDOW_RESIZABLE as u32)};
-    let (mut rl, thread) = raylib::init()
-        .size(800, 600)
-        .title("K means")
-        .build();
-
-    recluster(&cluster, &mut clusters, &means);
-
 
     while !rl.window_should_close(){
         if rl.is_key_pressed(KEY_R){
             cluster = vec![];
+            generate_cluster(Vector2{x:0.0,y:0.0}, 10.0, 100, &mut cluster);
+            generate_cluster(Vector2{x: MIN_X*0.5, y: MAX_Y*0.5}, 5.0, 50, &mut cluster);
+            generate_cluster(Vector2{x: MAX_X*0.5, y: MAX_Y*0.5}, 5.0, 50, &mut cluster);
+
             means = vec![];
-            regenerate_cluster(&mut cluster, &mut means);
-            clusters = vec![];
-            for _ in 0..K{
-                clusters.push(Vec::<Vector2>::new());
+            for i in 0..K{
+                means.push(Vector2{x: gen_float()*(MAX_X-MIN_X) + MIN_X, y: gen_float()*(MAX_Y-MIN_Y)+MIN_Y});
             }
-            recluster(&cluster, &mut clusters, &means);
         }
         let mut d = rl.begin_drawing(&thread);
         d.clear_background(Color::get_color(0x181818AA));
@@ -115,11 +103,7 @@ fn main(){
             d.draw_circle_v(project_sample(cluster[i]), SAMPLE_R, Color::RED);
         }
         for i in 0..K{
-            let color: Color = COLORS[i as usize %COLORS.len()];
-            for j in 0..clusters[i as usize].len(){
-                d.draw_circle_v(project_sample(clusters[i as usize][j]), SAMPLE_R, color);
-            }
-            d.draw_circle_v(project_sample(means[i as usize]), MEAN_R, color);
+            d.draw_circle_v(project_sample(means[i as usize]), MEAN_R, COLORS[(i%COLORS.len() as i32) as usize]);
         }
     }
 }
