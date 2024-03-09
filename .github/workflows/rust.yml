@@ -33,7 +33,7 @@ jobs:
           args: "--locked --release"
           strip: true
       - name: Upload
-        uses: actions/upload_artifact@v3
+        uses: actions/upload-artifact@v3
         with:
           name: Build
           path: target/x86_64-pc-windows-msvc/release
