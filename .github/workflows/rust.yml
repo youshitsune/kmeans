@@ -32,5 +32,10 @@ jobs:
           target: ${{ matrix.platform.target }}
           args: "--locked --release"
           strip: true
+      - name: Upload
+        uses: actions/upload_artifact@v3
+        with:
+          name: Build
+          path: target/x86_64-pc-windows-msvc/release
 
     # more packaging stuff goes here ...
