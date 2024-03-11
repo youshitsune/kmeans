@@ -32,7 +32,7 @@ use raylib::ffi::SetConfigFlags;
 use raylib::ffi::ConfigFlags::FLAG_WINDOW_RESIZABLE;
 use raylib::ffi::KeyboardKey::*;
 
-const K: i32 = 4;
+const K: i32 = 5;
 const SAMPLE_R: f32 = 4.0;
 const MEAN_R: f32 = SAMPLE_R*2.0;
 const MIN_X: f32 = -20.0;
